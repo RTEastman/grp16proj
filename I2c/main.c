@@ -73,11 +73,14 @@ void I2C1_stop() {
     }
     I2C1->CR2 |= I2C_CR2_STOP;
     while(!(I2C1->ISR & I2C_ISR_STOPF)){
-        if(plzstop > 10000){
+        /*if(plzstop > 5000){
+            I2C1->CR1 &= ~(I2C_CR1_PE);
+            micro_wait(10);
+            I2C1->CR1 |= (I2C_CR1_PE);
             break;
         }else{
             plzstop++;
-        }
+        }*/
     }
     I2C1->ICR |= I2C_ICR_STOPCF;
     //---------End-----------
@@ -138,16 +141,16 @@ int I2C1_readdata(int8_t* data, uint32_t size) {
 }
 
 void tof_params(){
-    char data[7];
-    data[0] = 5;
+    char data[2];
+    data[0] = 8;
     data[1] = 1;
     I2C1_waitidle();
     I2C1_start(0x52, WR);
     I2C1_senddata(data, 1);
-    micro_wait(40);
+    micro_wait(35);
     I2C1_senddata(data+1, 1);
     I2C1_stop();
-    micro_wait(1000);
+    micro_wait(100);
 }
 
 void setup_gpioc(){
