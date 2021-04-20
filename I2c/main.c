@@ -41,8 +41,9 @@ void init_I2C1() {
     RCC->APB1ENR |= RCC_APB1ENR_I2C1EN;
     I2C1->CR2 &= ~(I2C_CR2_ADD10);
     I2C1->CR2 |= I2C_CR2_NACK;
+    //I2C1->CR2 |= I2C_CR2_AUTOEND;
 
-    I2C1->TIMINGR |= (0b0000 << 28) | (0b11 <<20) | (0b10 << 16) | (0xC6 << 8) | 0b11000111;
+    I2C1->TIMINGR |= (0b0000 << 28) | (0b100 <<20) | (0b10 << 16) | (0xC4 << 8) | 0b11000111;
     I2C1->OAR1 &= ~(0b1 << 15);
     I2C1->OAR1 |= (0b1 << 15) | 0x2;
     I2C1->OAR2 &= ~(0b1 << 15);
@@ -66,12 +67,17 @@ void I2C1_start(uint8_t addr, uint32_t dir) {
 // See lab document for description
 void I2C1_stop() {
     // Student code goes here
+    int plzstop = 0;
     if(I2C1->ISR & I2C_ISR_STOPF){
         return;
     }
     I2C1->CR2 |= I2C_CR2_STOP;
     while(!(I2C1->ISR & I2C_ISR_STOPF)){
-        ;
+        if(plzstop > 10000){
+            break;
+        }else{
+            plzstop++;
+        }
     }
     I2C1->ICR |= I2C_ICR_STOPCF;
     //---------End-----------
@@ -88,6 +94,7 @@ int I2C1_senddata(uint8_t* data, uint32_t size) {
             if(timeout > 1000000){
                 return FAIL;
             }
+
         }
         I2C1->TXDR = data[i];
 
@@ -98,6 +105,7 @@ int I2C1_senddata(uint8_t* data, uint32_t size) {
     if(I2C1->ISR & I2C_ISR_NACKF){
         return FAIL;
     }
+
     return SUCCESS;
 
     //---------End-----------
@@ -112,7 +120,7 @@ int I2C1_readdata(int8_t* data, uint32_t size) {
             int timeout = 0;
             while(!(I2C1->ISR & I2C_ISR_RXNE)){
                 timeout++;
-                if(timeout > 1000000){
+                if(timeout > 10000000){
                     return FAIL;
                 }
             }
@@ -142,29 +150,56 @@ void tof_params(){
     micro_wait(1000);
 }
 
+void setup_gpioc(){
+    RCC->AHBENR |= RCC_AHBENR_GPIOCEN;
+    GPIOC->MODER |= 0b01010101;
+    GPIOC->MODER |=(0b01<<14);
+}
+
 int main(void)
 {
     init_I2C1();
+    setup_gpioc();
     //tof_params();
     int reads = 0;
-    char data[5];
-    data[0] = 5;
+    char data[6];
+    data[0] = 0;
     data[1] = 1;
     data[2] = 255;
     data[3] = 255;
+
     while(1){
         I2C1_waitidle();
-        I2C1_start(0x52, RD);
+
+        //micro_wait(40);
+        //I2C1_senddata(data+1,1);
+
+        I2C1_start(0x52, WR);
         int check1 = I2C1_senddata(data, 1);
-        micro_wait(40);
-        I2C1_senddata(data+1,1);
         I2C1_stop();
+
+
         micro_wait(60);
         I2C1_waitidle();
         I2C1_start(0x52, RD);
-        int check2 = I2C1_readdata(data+2, 2);
+        int check2 = I2C1_readdata(data+1, 2);
         I2C1_stop();
         unsigned int val = (data[1] << 8) | data[2];
         reads++;
-    }
+        GPIOC->ODR &= ~0b1111;
+        GPIOC->ODR &= ~(1<<7);
+        if(val < 500){
+            GPIOC->ODR |= 0b1;
+        } else if(val < 1000){
+            GPIOC->ODR |= 0b11;
+        } else if(val < 1500){
+            GPIOC->ODR |= 0b111;
+        }else{
+            GPIOC->ODR |= 0b1111;
+        }
+        if(check1 + check2 < 0){
+            GPIOC->ODR  |= (1<<7);
+        }
+        micro_wait(7000)
+;    }
 }
