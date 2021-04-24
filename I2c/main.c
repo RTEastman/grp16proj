@@ -56,6 +56,7 @@ void init_I2C1() {
 void I2C1_start(uint8_t addr, uint32_t dir) {
     // Student code goes here
     I2C1->CR2 &= ~(0b11111110);
+    I2C1->CR2 &= ~(I2C_CR2_RD_WRN);
     I2C1->CR2 |= addr<<1;
     if(dir == RD){
         I2C1->CR2 |= I2C_CR2_RD_WRN;
@@ -160,8 +161,7 @@ void setup_gpioc(){
 }
 
 int main(void)
-{
-    init_I2C1();
+{    init_I2C1();
     setup_gpioc();
     //tof_params();
     int reads = 0;
@@ -182,27 +182,34 @@ int main(void)
         I2C1_stop();
 
 
-        micro_wait(60);
+        micro_wait(100);
         I2C1_waitidle();
         I2C1_start(0x52, RD);
         int check2 = I2C1_readdata(data+1, 2);
         I2C1_stop();
         unsigned int val = (data[1] << 8) | data[2];
         reads++;
-        GPIOC->ODR &= ~0b1111;
+
         GPIOC->ODR &= ~(1<<7);
-        if(val < 500){
-            GPIOC->ODR |= 0b1;
-        } else if(val < 1000){
-            GPIOC->ODR |= 0b11;
-        } else if(val < 1500){
-            GPIOC->ODR |= 0b111;
-        }else{
+        if(val < 400){
             GPIOC->ODR |= 0b1111;
+
+        } else if(val < 800){
+            GPIOC->ODR &= ~0b1000;
+            GPIOC->ODR |= 0b111;
+
+        } else if(val < 1200){
+            GPIOC->ODR &= ~0b1100;
+            GPIOC->ODR |= 0b11;
+        }else if(val < 1600){
+            GPIOC->ODR &= ~0b1110;
+            GPIOC->ODR |= 0b1;
+        }else{
+            GPIOC->ODR &= ~0b1111;
         }
         if(check1 + check2 < 0){
             GPIOC->ODR  |= (1<<7);
         }
-        micro_wait(7000)
-;    }
+        micro_wait(700);
+    }
 }
