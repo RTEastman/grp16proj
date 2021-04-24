@@ -48,6 +48,16 @@ void init_I2C1() {
     I2C1->OAR1 |= (0b1 << 15) | 0x2;
     I2C1->OAR2 &= ~(0b1 << 15);
     I2C1->CR1 |= I2C_CR1_PE;
+    micro_wait(30);
+    char em[2];
+    I2C1_start(0x52, RD);
+    I2C1_readdata(&em,2);
+    I2C1_stop();
+    micro_wait(30);
+    I2C1->CR1 &= ~I2C_CR1_PE;
+    micro_wait(30);
+    I2C1->CR1 |= I2C_CR1_PE;
+
 
     //---------End-----------
 }
@@ -124,7 +134,7 @@ int I2C1_readdata(int8_t* data, uint32_t size) {
             int timeout = 0;
             while(!(I2C1->ISR & I2C_ISR_RXNE)){
                 timeout++;
-                if(timeout > 10000000){
+                if(timeout > 1000000){
                     return FAIL;
                 }
             }
